@@ -1,4 +1,4 @@
-name = "tusc-cw-concern-compiler"
+name = 'tusc-concern-compiler'
 main = "src/index.js"
 compatibility_date = "2026-07-02"
 workers_dev = true
