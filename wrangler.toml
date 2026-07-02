@@ -1,0 +1,23 @@
+name = "tusc-cw-concern-compiler"
+main = "src/index.js"
+compatibility_date = "2026-07-02"
+workers_dev = true
+
+[observability]
+enabled = false
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+invocation_logs = true
+
+[observability.traces]
+enabled = false
+
+[ai]
+binding = "AI"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "d1-cw-database"
+database_id = "7bc9fdb0-2a19-43df-b475-a6aa769748e0"
