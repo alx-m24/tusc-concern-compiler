@@ -1,16 +1,26 @@
-export default {
+export default {
   async fetch(request, env, ctx) {
-    console.info({ message: 'Hello World Worker received a request!' });
+    const { results } = await env.DB.prepare(
+      "SELECT * FROM Department"
+    ).all();
 
-    const result = await env.AI.run(
-      "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
-      {
-        prompt: "What is the origin of the phrase Hello, World",
-      }
+    // Build column headers from the keys of the first row
+    const headers = Object.keys(results[0]);
+    const colWidths = headers.map((h) =>
+      Math.max(h.length, ...results.map((r) => String(r[h] ?? "").length))
     );
 
-    return new Response(result.response, {
+    const pad = (str, len) => String(str ?? "").padEnd(len);
+
+    let table = headers.map((h, i) => pad(h, colWidths[i])).join(" | ") + "\n";
+    table += colWidths.map((w) => "-".repeat(w)).join("-+-") + "\n";
+
+    for (const row of results) {
+      table += headers.map((h, i) => pad(row[h], colWidths[i])).join(" | ") + "\n";
+    }
+
+    return new Response(table, {
       headers: { "content-type": "text/plain" },
-    });
-  }
+    });
+  },
 };
