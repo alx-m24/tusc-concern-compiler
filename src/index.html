@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Concern Compiler</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ===================== -->
+<!-- SIDEBAR -->
+<!-- ===================== -->
+
+<nav id="sidebar">
+
+    <div class="logo">
+        <h2>Concern Compiler</h2>
+    </div>
+
+    <button class="nav-btn active" data-page="home">
+        🏠 Home
+    </button>
+
+    <button class="nav-btn" data-page="developer">
+        🧪 Developer
+    </button>
+
+</nav>
+
+<!-- ===================== -->
+<!-- MAIN -->
+<!-- ===================== -->
+
+<div id="main">
+
+    <!-- ===================== -->
+    <!-- TOP BAR -->
+    <!-- ===================== -->
+
+    <header>
+
+        <button id="menuButton">
+            ☰
+        </button>
+
+        <h1 id="pageTitle">
+            Home
+        </h1>
+
+    </header>
+
+    <!-- ======================================================= -->
+    <!-- HOME PAGE -->
+    <!-- ======================================================= -->
+
+    <section id="homePage" class="page">
+
+        <!-- SQL BUILDER -->
+
+        <div class="card">
+
+            <h2>SQL Builder</h2>
+
+            <div class="sql-builder">
+
+                <label>
+                    SELECT
+                    <select>
+                        <option>*</option>
+                        <option>DepartmentName</option>
+                        <option>Keyword</option>
+                        <option>RawConcern</option>
+                    </select>
+                </label>
+
+                <label>
+                    FROM
+                    <select>
+                        <option>Department</option>
+                        <option>Keywords</option>
+                        <option>RawData</option>
+                        <option>CategorizedData</option>
+                    </select>
+                </label>
+
+                <label>
+                    WHERE
+                    <select>
+                        <option>None</option>
+                    </select>
+                </label>
+
+                <button>
+                    Execute
+                </button>
+
+            </div>
+
+        </div>
+
+        <!-- DATABASE TABLE -->
+
+        <div class="card">
+
+            <h2>Results</h2>
+
+            <table>
+
+                <thead>
+
+                <tr>
+                    <th>ID</th>
+                    <th>Column 1</th>
+                    <th>Column 2</th>
+                    <th>Column 3</th>
+                </tr>
+
+                </thead>
+
+                <tbody id="resultsTable">
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </section>
+
+    <!-- ======================================================= -->
+    <!-- DEVELOPER PAGE -->
+    <!-- ======================================================= -->
+
+    <section id="developerPage" class="page hidden">
+
+        <div class="card">
+
+            <h2>Manual Concern</h2>
+
+            <textarea
+                    id="manualConcern"
+                    placeholder="Enter a concern here..."
+                    rows="10"></textarea>
+
+            <button id="analyzeButton">
+                Analyze
+            </button>
+
+        </div>
+
+        <div class="card">
+
+            <h2>AI Output</h2>
+
+            <pre id="aiOutput">
+
+Waiting...
+
+            </pre>
+
+        </div>
+
+        <div class="card">
+
+            <h2>Console</h2>
+
+            <pre id="consoleOutput">
+
+Worker ready...
+
+            </pre>
+
+        </div>
+
+    </section>
+
+</div>
+
+<!-- ======================================================= -->
+<!-- RIGHT FLYOUT -->
+<!-- ======================================================= -->
+
+<aside id="flyout">
+
+    <div class="flyout-header">
+
+        <h2>
+            Unprocessed Concerns
+        </h2>
+
+        <button id="closeFlyout">
+            ✕
+        </button>
+
+    </div>
+
+    <div id="unprocessedList">
+
+        <!-- JS inserts concerns -->
+
+    </div>
+
+    <button id="compileAll">
+        Compile All
+    </button>
+
+</aside>
+
+<button id="openFlyout">
+    📥 Unprocessed
+</button>
+
+<script src="app.js"></script>
+
+</body>
+</html>

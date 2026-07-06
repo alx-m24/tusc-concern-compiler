@@ -1,7 +1,13 @@
 name = 'tusc-concern-compiler'
 main = "src/index.js"
-compatibility_date = "2026-07-02"
+compatibility_date = "2026-07-06"
 workers_dev = true
+
+assets = {
+    "directory": "./public"
+  }
+
+compatibility_date = "2026-07-06"
 
 [observability]
 enabled = false
