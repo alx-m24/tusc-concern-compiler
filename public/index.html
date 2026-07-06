@@ -1,218 +1,437 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Concern Compiler</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Internal DB & AI Dashboard</title>
+  <style>
+    :root {
+      --bg-color: #0f172a;
+      --panel-bg: #1e293b;
+      --border-color: #334155;
+      --text-color: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-color: #3b82f6;
+      --accent-hover: #2563eb;
+      --success-color: #10b981;
+    }
 
-    <link rel="stylesheet" href="style.css">
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Header & Navigation Toggle */
+    header {
+      background-color: var(--panel-bg);
+      border-bottom: 1px solid var(--border-color);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 10;
+    }
+
+    .toggle-container {
+      display: flex;
+      background: var(--bg-color);
+      padding: 0.25rem;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+    }
+
+    .toggle-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      padding: 0.5rem 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      border-radius: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .toggle-btn.active {
+      background-color: var(--accent-color);
+      color: var(--text-color);
+    }
+
+    .top-right-actions {
+      display: flex;
+      gap: 1rem;
+    }
+
+    .btn {
+      background-color: var(--accent-color);
+      color: white;
+      border: none;
+      padding: 0.6rem 1.2rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: background 0.2s;
+    }
+
+    .btn:hover {
+      background-color: var(--accent-hover);
+    }
+
+    /* Main Layout */
+    .main-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .page {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      padding: 2rem;
+      overflow-y: auto;
+      display: none;
+    }
+
+    .page.active {
+      display: block;
+    }
+
+    /* Home Page Layout */
+    .sql-builder {
+      background: var(--panel-bg);
+      padding: 1.5rem;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      margin-bottom: 2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 1.1rem;
+    }
+
+    .sql-builder select {
+      background: var(--bg-color);
+      color: var(--text-color);
+      border: 1px solid var(--border-color);
+      padding: 0.5rem;
+      border-radius: 4px;
+      font-weight: bold;
+    }
+
+    .data-section {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+
+    .card {
+      background: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1.5rem;
+    }
+
+    .card h2 {
+      margin-bottom: 1rem;
+      color: var(--text-muted);
+      font-size: 1.2rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .scroll-container {
+      max-height: 400px;
+      overflow-y: auto;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+    }
+
+    /* Tables Styles */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+
+    th, td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    th {
+      background-color: var(--bg-color);
+      color: var(--text-muted);
+      position: sticky;
+      top: 0;
+    }
+
+    /* Flyout Panel */
+    .flyout {
+      position: fixed;
+      top: 0;
+      right: -400px;
+      width: 400px;
+      height: 100%;
+      background: var(--panel-bg);
+      border-left: 1px solid var(--border-color);
+      box-shadow: -5px 0 25px rgba(0,0,0,0.5);
+      transition: right 0.3s ease;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .flyout.open {
+      right: 0;
+    }
+
+    .flyout-header {
+      padding: 1.5rem;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .flyout-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.5rem;
+      cursor: pointer;
+    }
+
+    .flyout-content {
+      flex: 1;
+      padding: 1.5rem;
+      overflow-y: auto;
+    }
+
+    .unprocessed-item {
+      background: var(--bg-color);
+      padding: 1rem;
+      border-radius: 6px;
+      margin-bottom: 1rem;
+      border: 1px solid var(--border-color);
+    }
+
+    .flyout-footer {
+      padding: 1.5rem;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .btn-block {
+      width: 100%;
+      padding: 1rem;
+    }
+
+    /* Dev Page Layout */
+    .dev-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      height: 100%;
+    }
+
+    .dev-left, .dev-right {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    textarea {
+      width: 100%;
+      height: 150px;
+      background: var(--bg-color);
+      color: var(--text-color);
+      border: 1px solid var(--border-color);
+      padding: 1rem;
+      border-radius: 6px;
+      resize: none;
+      font-size: 1rem;
+    }
+
+    .output-box, .console-box {
+      flex: 1;
+      background: #000;
+      font-family: 'Courier New', Courier, monospace;
+      padding: 1rem;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      overflow-y: auto;
+      color: #a3e635; /* Terminal green */
+    }
+
+    .console-box {
+      color: #cbd5e1; /* White/grey text for logs */
+    }
+  </style>
 </head>
 <body>
 
-<!-- ===================== -->
-<!-- SIDEBAR -->
-<!-- ===================== -->
-
-<nav id="sidebar">
-
-    <div class="logo">
-        <h2>Concern Compiler</h2>
+  <header>
+    <div class="toggle-container">
+      <button class="toggle-btn active" onclick="switchPage('home')">Home</button>
+      <button class="toggle-btn" onclick="switchPage('dev')">Dev Page</button>
     </div>
 
-    <button class="nav-btn active" data-page="home">
-        🏠 Home
-    </button>
+    <div class="top-right-actions" id="home-actions">
+      <button class="btn" onclick="toggleFlyout(true)">View Unprocessed Concerns</button>
+    </div>
+  </header>
 
-    <button class="nav-btn" data-page="developer">
-        🧪 Developer
-    </button>
+  <main class="main-container">
 
-</nav>
+    <div id="home-page" class="page active">
+      <div class="sql-builder">
+        <span>SELECT</span>
+        <select id="sql-select">
+          <option value="*">* (All Columns)</option>
+          <option value="id, description">id, description</option>
+          <option value="status, created_at">status, created_at</option>
+        </select>
+        <span>FROM</span>
+        <select id="sql-from">
+          <option value="Concerns">Concerns</option>
+          <option value="Department">Department</option>
+          <option value="Resolutions">Resolutions</option>
+        </select>
+        <button class="btn" style="margin-left: auto;">Run Query</button>
+      </div>
 
-<!-- ===================== -->
-<!-- MAIN -->
-<!-- ===================== -->
-
-<div id="main">
-
-    <!-- ===================== -->
-    <!-- TOP BAR -->
-    <!-- ===================== -->
-
-    <header>
-
-        <button id="menuButton">
-            ☰
-        </button>
-
-        <h1 id="pageTitle">
-            Home
-        </h1>
-
-    </header>
-
-    <!-- ======================================================= -->
-    <!-- HOME PAGE -->
-    <!-- ======================================================= -->
-
-    <section id="homePage" class="page">
-
-        <!-- SQL BUILDER -->
-
+      <div class="data-section">
         <div class="card">
-
-            <h2>SQL Builder</h2>
-
-            <div class="sql-builder">
-
-                <label>
-                    SELECT
-                    <select>
-                        <option>*</option>
-                        <option>DepartmentName</option>
-                        <option>Keyword</option>
-                        <option>RawConcern</option>
-                    </select>
-                </label>
-
-                <label>
-                    FROM
-                    <select>
-                        <option>Department</option>
-                        <option>Keywords</option>
-                        <option>RawData</option>
-                        <option>CategorizedData</option>
-                    </select>
-                </label>
-
-                <label>
-                    WHERE
-                    <select>
-                        <option>None</option>
-                    </select>
-                </label>
-
-                <button>
-                    Execute
-                </button>
-
-            </div>
-
-        </div>
-
-        <!-- DATABASE TABLE -->
-
-        <div class="card">
-
-            <h2>Results</h2>
-
+          <h2>Active Tables / Concerns Data</h2>
+          <div class="scroll-container">
             <table>
-
-                <thead>
-
+              <thead>
                 <tr>
-                    <th>ID</th>
-                    <th>Column 1</th>
-                    <th>Column 2</th>
-                    <th>Column 3</th>
+                  <th>ID</th>
+                  <th>Category</th>
+                  <th>Description</th>
+                  <th>Status</th>
                 </tr>
-
-                </thead>
-
-                <tbody id="resultsTable">
-
+              </thead>
+              <tbody>
+                <tr>
+                  <td>#1024</td>
+                  <td>Database</td>
+                  <td>Connection pool timeout occurring under high loads.</td>
+                  <td><span style="color: var(--success-color)">Active</span></td>
+                </tr>
+                <tr>
+                  <td>#1025</td>
+                  <td>UI/UX</td>
+                  <td>Toggle alignment shift on mobile viewports.</td>
+                  <td><span style="color: var(--success-color)">Active</span></td>
+                </tr>
                 </tbody>
-
             </table>
+          </div>
+        </div>
+      </div>
+    </div>
 
+    <div id="dev-page" class="page">
+      <div class="dev-grid">
+        <div class="dev-left">
+          <div class="card" style="flex: 0;">
+            <h2>Enter Concern Manually</h2>
+            <textarea placeholder="Type your concern details here..."></textarea>
+            <button class="btn" style="margin-top: 1rem;">Submit to AI Pipeline</button>
+          </div>
+          
+          <div class="card" style="flex: 1; display: flex; flex-direction: column;">
+            <h2>Console Logs</h2>
+            <div class="console-box">
+              [SYSTEM] Dev pipeline initialized.<br>
+              [DB] Connected successfully to env.DATABASE.<br>
+              [READY] Awaiting manual input...
+            </div>
+          </div>
         </div>
 
-    </section>
-
-    <!-- ======================================================= -->
-    <!-- DEVELOPER PAGE -->
-    <!-- ======================================================= -->
-
-    <section id="developerPage" class="page hidden">
-
-        <div class="card">
-
-            <h2>Manual Concern</h2>
-
-            <textarea
-                    id="manualConcern"
-                    placeholder="Enter a concern here..."
-                    rows="10"></textarea>
-
-            <button id="analyzeButton">
-                Analyze
-            </button>
-
-        </div>
-
-        <div class="card">
-
+        <div class="dev-right">
+          <div class="card" style="height: 100%; display: flex; flex-direction: column;">
             <h2>AI Output</h2>
-
-            <pre id="aiOutput">
-
-Waiting...
-
-            </pre>
-
+            <div class="output-box">
+              {
+                "analysis": "Awaiting processing...",
+                "confidence": 0.0
+              }
+            </div>
+          </div>
         </div>
+      </div>
+    </div>
 
-        <div class="card">
+  </main>
 
-            <h2>Console</h2>
-
-            <pre id="consoleOutput">
-
-Worker ready...
-
-            </pre>
-
-        </div>
-
-    </section>
-
-</div>
-
-<!-- ======================================================= -->
-<!-- RIGHT FLYOUT -->
-<!-- ======================================================= -->
-
-<aside id="flyout">
-
+  <div id="flyout-panel" class="flyout">
     <div class="flyout-header">
-
-        <h2>
-            Unprocessed Concerns
-        </h2>
-
-        <button id="closeFlyout">
-            ✕
-        </button>
-
+      <h3>Unprocessed Concerns</h3>
+      <button class="flyout-close" onclick="toggleFlyout(false)">&times;</button>
     </div>
-
-    <div id="unprocessedList">
-
-        <!-- JS inserts concerns -->
-
+    <div class="flyout-content">
+      <div class="unprocessed-item">
+        <strong>Ticket #1026</strong>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.5rem;">
+          API is returning 504 Gateway errors during batch CSV processing updates.
+        </p>
+      </div>
+      <div class="unprocessed-item">
+        <strong>Ticket #1027</strong>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.5rem;">
+          Memory leak identified in the worker thread loop context.
+        </p>
+      </div>
     </div>
+    <div class="flyout-footer">
+      <button class="btn btn-block" style="background-color: var(--success-color);">Compile All</button>
+    </div>
+  </div>
 
-    <button id="compileAll">
-        Compile All
-    </button>
+  <script>
+    function switchPage(pageId) {
+      // Toggle Pages
+      document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+      document.getElementById(`${pageId}-page`).classList.add('active');
+      
+      // Toggle Nav Buttons
+      document.querySelectorAll('.toggle-btn').forEach(btn => btn.classList.remove('active'));
+      event.target.classList.add('active');
 
-</aside>
+      // Hide/Show Top Right Flyout trigger based on page
+      const flyoutTrigger = document.getElementById('home-actions');
+      if(pageId === 'home') {
+        flyoutTrigger.style.display = 'block';
+      } else {
+        flyoutTrigger.style.display = 'none';
+        toggleFlyout(false); // Auto-close flyout if shifting to dev page
+      }
+    }
 
-<button id="openFlyout">
-    📥 Unprocessed
-</button>
-
-<script src="app.js"></script>
-
+    function toggleFlyout(open) {
+      const flyout = document.getElementById('flyout-panel');
+      if (open) {
+        flyout.classList.add('open');
+      } else {
+        flyout.classList.remove('open');
+      }
+    }
+  </script>
 </body>
 </html>
