@@ -3,11 +3,8 @@ main = "src/index.js"
 compatibility_date = "2026-07-06"
 workers_dev = true
 
-assets = {
-    "directory": "./public"
-  }
-
-compatibility_date = "2026-07-06"
+[assets]
+directory = "./public"
 
 [observability]
 enabled = false
