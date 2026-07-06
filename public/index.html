@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Internal DB & AI Dashboard</title>
+  <title>Student Concerns Pipeline Dashboard</title>
   <style>
     :root {
       --bg-color: #0f172a;
@@ -14,6 +14,7 @@
       --accent-color: #3b82f6;
       --accent-hover: #2563eb;
       --success-color: #10b981;
+      --warning-color: #f59e0b;
     }
 
     * {
@@ -32,7 +33,6 @@
       overflow: hidden;
     }
 
-    /* Header & Navigation Toggle */
     header {
       background-color: var(--panel-bg);
       border-bottom: 1px solid var(--border-color);
@@ -87,7 +87,6 @@
       background-color: var(--accent-hover);
     }
 
-    /* Main Layout */
     .main-container {
       flex: 1;
       position: relative;
@@ -109,7 +108,6 @@
       display: block;
     }
 
-    /* Home Page Layout */
     .sql-builder {
       background: var(--panel-bg);
       padding: 1.5rem;
@@ -131,17 +129,12 @@
       font-weight: bold;
     }
 
-    .data-section {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 2rem;
-    }
-
     .card {
       background: var(--panel-bg);
       border: 1px solid var(--border-color);
       border-radius: 8px;
       padding: 1.5rem;
+      margin-bottom: 2rem;
     }
 
     .card h2 {
@@ -153,13 +146,12 @@
     }
 
     .scroll-container {
-      max-height: 400px;
+      max-height: 380px;
       overflow-y: auto;
       border: 1px solid var(--border-color);
       border-radius: 6px;
     }
 
-    /* Tables Styles */
     table {
       width: 100%;
       border-collapse: collapse;
@@ -169,6 +161,7 @@
     th, td {
       padding: 0.75rem 1rem;
       border-bottom: 1px solid var(--border-color);
+      font-size: 0.95rem;
     }
 
     th {
@@ -178,12 +171,11 @@
       top: 0;
     }
 
-    /* Flyout Panel */
     .flyout {
       position: fixed;
       top: 0;
-      right: -400px;
-      width: 400px;
+      right: -450px;
+      width: 450px;
       height: 100%;
       background: var(--panel-bg);
       border-left: 1px solid var(--border-color);
@@ -228,6 +220,13 @@
       border: 1px solid var(--border-color);
     }
 
+    .unprocessed-item span {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      display: block;
+      margin-top: 0.5rem;
+    }
+
     .flyout-footer {
       padding: 1.5rem;
       border-top: 1px solid var(--border-color);
@@ -238,15 +237,14 @@
       padding: 1rem;
     }
 
-    /* Dev Page Layout */
     .dev-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 2rem;
-      height: 100%;
+      align-items: start;
     }
 
-    .dev-left, .dev-right {
+    .dev-panel-stack {
       display: flex;
       flex-direction: column;
       gap: 1.5rem;
@@ -254,7 +252,7 @@
 
     textarea {
       width: 100%;
-      height: 150px;
+      height: 120px;
       background: var(--bg-color);
       color: var(--text-color);
       border: 1px solid var(--border-color);
@@ -262,21 +260,41 @@
       border-radius: 6px;
       resize: none;
       font-size: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .meta-input-group {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .meta-input-group input {
+      background: var(--bg-color);
+      color: var(--text-color);
+      border: 1px solid var(--border-color);
+      padding: 0.6rem;
+      border-radius: 6px;
     }
 
     .output-box, .console-box {
-      flex: 1;
+      height: 320px;
       background: #000;
       font-family: 'Courier New', Courier, monospace;
       padding: 1rem;
       border-radius: 6px;
       border: 1px solid var(--border-color);
       overflow-y: auto;
-      color: #a3e635; /* Terminal green */
+      color: #a3e635;
+      white-space: pre-wrap;
+      font-size: 0.9rem;
+      line-height: 1.4;
     }
 
     .console-box {
-      color: #cbd5e1; /* White/grey text for logs */
+      color: #cbd5e1;
+      height: 200px;
     }
   </style>
 </head>
@@ -284,12 +302,12 @@
 
   <header>
     <div class="toggle-container">
-      <button class="toggle-btn active" onclick="switchPage('home')">Home</button>
-      <button class="toggle-btn" onclick="switchPage('dev')">Dev Page</button>
+      <button class="toggle-btn active" onclick="switchPage('home')">Home Explorer</button>
+      <button class="toggle-btn" onclick="switchPage('dev')">Dev Sandbox</button>
     </div>
 
     <div class="top-right-actions" id="home-actions">
-      <button class="btn" onclick="toggleFlyout(true)">View Unprocessed Concerns</button>
+      <button class="btn" onclick="openUnprocessedPanel()">Unprocessed Concerns Panel</button>
     </div>
   </header>
 
@@ -299,80 +317,56 @@
       <div class="sql-builder">
         <span>SELECT</span>
         <select id="sql-select">
-          <option value="*">* (All Columns)</option>
-          <option value="id, description">id, description</option>
-          <option value="status, created_at">status, created_at</option>
+          <option value="*">* (All Fields)</option>
+          <option value="EntryID, RawConcern, Date, Source">EntryID, RawConcern, Date, Source</option>
+          <option value="KeyWord, InsertedDate">KeyWord, InsertedDate</option>
+          <option value="DepartmentID, DepartmentName">DepartmentID, DepartmentName</option>
         </select>
         <span>FROM</span>
         <select id="sql-from">
-          <option value="Concerns">Concerns</option>
+          <option value="RawData">RawData</option>
           <option value="Department">Department</option>
-          <option value="Resolutions">Resolutions</option>
+          <option value="KeyWords">KeyWords</option>
+          <option value="CategorizedData">CategorizedData</option>
         </select>
-        <button class="btn" style="margin-left: auto;">Run Query</button>
+        <button class="btn" style="margin-left: auto;" onclick="runPredefinedQuery()">Execute Query</button>
       </div>
 
-      <div class="data-section">
-        <div class="card">
-          <h2>Active Tables / Concerns Data</h2>
-          <div class="scroll-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Category</th>
-                  <th>Description</th>
-                  <th>Status</th>
-                </tr>
+      <div class="card">
+        <h2 id="table-title">Table Viewer: RawData</h2>
+        <div class="scroll-container">
+          <table id="main-data-table">
+            <thead>
               </thead>
-              <tbody>
-                <tr>
-                  <td>#1024</td>
-                  <td>Database</td>
-                  <td>Connection pool timeout occurring under high loads.</td>
-                  <td><span style="color: var(--success-color)">Active</span></td>
-                </tr>
-                <tr>
-                  <td>#1025</td>
-                  <td>UI/UX</td>
-                  <td>Toggle alignment shift on mobile viewports.</td>
-                  <td><span style="color: var(--success-color)">Active</span></td>
-                </tr>
-                </tbody>
-            </table>
-          </div>
+            <tbody>
+              </tbody>
+          </table>
         </div>
       </div>
     </div>
 
     <div id="dev-page" class="page">
       <div class="dev-grid">
-        <div class="dev-left">
-          <div class="card" style="flex: 0;">
-            <h2>Enter Concern Manually</h2>
-            <textarea placeholder="Type your concern details here..."></textarea>
-            <button class="btn" style="margin-top: 1rem;">Submit to AI Pipeline</button>
+        <div class="dev-panel-stack">
+          <div class="card">
+            <h2>Manual Concern Ingestion Pipeline</h2>
+            <div class="meta-input-group">
+              <input type="text" id="dev-source" placeholder="Source (e.g. Manual_Entry)" value="Manual_Entry">
+            </div>
+            <textarea id="dev-concern-input" placeholder="Paste a raw student concern string here..."></textarea>
+            <button class="btn" onclick="submitToPipeline()">Process to Pipeline Engine</button>
           </div>
           
-          <div class="card" style="flex: 1; display: flex; flex-direction: column;">
-            <h2>Console Logs</h2>
-            <div class="console-box">
-              [SYSTEM] Dev pipeline initialized.<br>
-              [DB] Connected successfully to env.DATABASE.<br>
-              [READY] Awaiting manual input...
-            </div>
+          <div class="card">
+            <h2>Runtime Console Log Output</h2>
+            <div class="console-box" id="console-output">[SYSTEM]: Sandbox mode active. Bound to local live database channels.</div>
           </div>
         </div>
 
-        <div class="dev-right">
-          <div class="card" style="height: 100%; display: flex; flex-direction: column;">
-            <h2>AI Output</h2>
-            <div class="output-box">
-              {
-                "analysis": "Awaiting processing...",
-                "confidence": 0.0
-              }
-            </div>
+        <div class="dev-panel-stack">
+          <div class="card">
+            <h2>Deterministic JSON Object Output (env.AI)</h2>
+            <div class="output-box" id="ai-json-output">// Awaiting instruction payload...</div>
           </div>
         </div>
       </div>
@@ -382,45 +376,171 @@
 
   <div id="flyout-panel" class="flyout">
     <div class="flyout-header">
-      <h3>Unprocessed Concerns</h3>
+      <h3>Queue: Unprocessed Concerns</h3>
       <button class="flyout-close" onclick="toggleFlyout(false)">&times;</button>
     </div>
-    <div class="flyout-content">
-      <div class="unprocessed-item">
-        <strong>Ticket #1026</strong>
-        <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.5rem;">
-          API is returning 504 Gateway errors during batch CSV processing updates.
-        </p>
+    <div class="flyout-content" id="unprocessed-list">
       </div>
-      <div class="unprocessed-item">
-        <strong>Ticket #1027</strong>
-        <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.5rem;">
-          Memory leak identified in the worker thread loop context.
-        </p>
-      </div>
-    </div>
     <div class="flyout-footer">
-      <button class="btn btn-block" style="background-color: var(--success-color);">Compile All</button>
+      <button class="btn btn-block" style="background-color: var(--success-color);" onclick="compileAllQueued()">Compile All Queued Objects</button>
     </div>
   </div>
 
   <script>
+    // Lifecycle setup
+    document.addEventListener("DOMContentLoaded", () => {
+      runPredefinedQuery();
+    });
+
+    function logToConsole(message) {
+      const consoleBox = document.getElementById("console-output");
+      const timestamp = new Date().toLocaleTimeString();
+      consoleBox.innerHTML += `\n[${timestamp}]: ${message}`;
+      consoleBox.scrollTop = consoleBox.scrollHeight;
+    }
+
+    // Dynamic Database Query Client Core
+    async function runPredefinedQuery() {
+      const selectVal = document.getElementById("sql-select").value;
+      const fromVal = document.getElementById("sql-from").value;
+      document.getElementById("table-title").innerText = `Table Viewer: ${fromVal}`;
+
+      try {
+        const response = await fetch("/api/query", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ select: selectVal, from: fromVal })
+        });
+
+        if (!response.ok) throw new Error("Database request failed");
+        const data = await response.json();
+        renderTable(data);
+      } catch (err) {
+        logToConsole(`Error executing query: ${err.message}`);
+      }
+    }
+
+    function renderTable(data) {
+      const table = document.getElementById("main-data-table");
+      const thead = table.querySelector("thead");
+      const tbody = table.querySelector("tbody");
+      
+      thead.innerHTML = "";
+      tbody.innerHTML = "";
+
+      if (!data || data.length === 0) {
+        tbody.innerHTML = "<tr><td colspan='100%'>No data rows returned from target relation.</td></tr>";
+        return;
+      }
+
+      // Generate Columns
+      const headers = Object.keys(data[0]);
+      const trHead = document.createElement("tr");
+      headers.forEach(h => {
+        const th = document.createElement("th");
+        th.innerText = h;
+        trHead.appendChild(th);
+      });
+      thead.appendChild(trHead);
+
+      // Generate Data Rows
+      data.forEach(row => {
+        const trBody = document.createElement("tr");
+        headers.forEach(h => {
+          const td = document.createElement("td");
+          td.innerText = row[h] !== null ? row[h] : "";
+          trBody.appendChild(td);
+        });
+        tbody.appendChild(trBody);
+      });
+    }
+
+    // Flyout Processing Logic
+    async function openUnprocessedPanel() {
+      toggleFlyout(true);
+      const container = document.getElementById("unprocessed-list");
+      container.innerHTML = "Loading live queue data...";
+
+      try {
+        const response = await fetch("/api/unprocessed");
+        const unprocessed = await response.json();
+        
+        container.innerHTML = "";
+        if(unprocessed.length === 0) {
+          container.innerHTML = "<p style='color: var(--text-muted);'>No current unprocessed entries in queue.</p>";
+          return;
+        }
+
+        unprocessed.forEach(item => {
+          const div = document.createElement("div");
+          div.className = "unprocessed-item";
+          div.innerHTML = `
+            <strong>ID: ${item.EntryID}</strong>
+            <p style="margin-top: 0.25rem;">${item.RawConcern}</p>
+            <span>Received: ${item.Date} | Source: ${item.Source}</span>
+          `;
+          container.appendChild(div);
+        });
+      } catch (err) {
+        container.innerHTML = "Failed to load live queue information.";
+      }
+    }
+
+    async function compileAllQueued() {
+      logToConsole("Initializing batch compilation engine on remaining unprocessed data rows...");
+      try {
+        const response = await fetch("/api/compile-all", { method: "POST" });
+        const summary = await response.json();
+        logToConsole(`Batch analysis run completed! Successfully handled ${summary.processedCount} records.`);
+        toggleFlyout(false);
+        runPredefinedQuery();
+      } catch (err) {
+        logToConsole(`Batch error pipeline execution halted: ${err.message}`);
+      }
+    }
+
+    // Dev View Pipeline Submission Logic
+    async function submitToPipeline() {
+      const rawConcernText = document.getElementById("dev-concern-input").value;
+      const sourceVal = document.getElementById("dev-source").value;
+
+      if (!rawConcernText.trim()) {
+        alert("Please specify a raw input value string first.");
+        return;
+      }
+
+      logToConsole(`Transmitting processing payload to AI Worker Router...`);
+      document.getElementById("ai-json-output").innerText = "Invoking deterministic neural parameters (temp: 0)...";
+
+      try {
+        const response = await fetch("/api/ai-process", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rawConcern: rawConcernText, source: sourceVal })
+        });
+
+        const pipelineOutput = await response.json();
+        document.getElementById("ai-json-output").innerText = JSON.stringify(pipelineOutput, null, 2);
+        logToConsole(`Successfully processed entry. Inserted mapping into system architecture tables.`);
+      } catch (err) {
+        logToConsole(`Worker computation exception encountered: ${err.message}`);
+        document.getElementById("ai-json-output").innerText = `An architecture fault has occurred. Check logs.`;
+      }
+    }
+
     function switchPage(pageId) {
-      // Toggle Pages
-      document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
       document.getElementById(`${pageId}-page`).classList.add('active');
       
-      // Toggle Nav Buttons
-      document.querySelectorAll('.toggle-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
       event.target.classList.add('active');
 
-      // Hide/Show Top Right Flyout trigger based on page
       const flyoutTrigger = document.getElementById('home-actions');
       if(pageId === 'home') {
         flyoutTrigger.style.display = 'block';
       } else {
         flyoutTrigger.style.display = 'none';
-        toggleFlyout(false); // Auto-close flyout if shifting to dev page
+        toggleFlyout(false);
       }
     }
 
