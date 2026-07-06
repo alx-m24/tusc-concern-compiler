@@ -3,9 +3,6 @@ main = "src/index.js"
 compatibility_date = "2026-07-06"
 workers_dev = true
 
-[assets]
-directory = "./public"
-
 [observability]
 enabled = false
 head_sampling_rate = 1
