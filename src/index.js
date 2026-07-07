@@ -1,310 +1,376 @@
+const HTML_PAGE = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TUSC Concern Compiler</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.44.0/tabler-icons.min.css" />
+<style>
+  :root {
+    --border: #ddd8cd;
+    --surface-0: #faf9f5;
+    --surface-1: #f1efe8;
+    --surface-2: #ffffff;
+    --text-primary: #2c2c2a;
+    --text-secondary: #5f5e5a;
+    --text-muted: #888780;
+    --text-danger: #791f1f;
+    --radius: 8px;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+    --accent: #A32D2D;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px;
+    background: var(--surface-0);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+  }
+  button, select, input, textarea {
+    font-family: inherit;
+    font-size: 13px;
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 6px 10px;
+    background: var(--surface-2);
+    color: var(--text-primary);
+  }
+  button { cursor: pointer; }
+  button:hover { background: var(--surface-1); }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 0.5px solid var(--border); }
+  th { color: var(--text-secondary); font-weight: 500; }
+</style>
+</head>
+<body>
+
+<div style="max-width: 900px; margin: 0 auto; font-family: var(--font-sans);">
+
+  <div style="display:flex; align-items:center; gap:10px; margin-bottom:1.25rem;">
+    <div style="width:34px; height:34px; border-radius:50%; background:var(--accent); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:500; font-size:14px; flex-shrink:0;">S</div>
+    <div>
+      <p style="font-weight:500; font-size:15px; margin:0;">Concern compiler</p>
+      <p style="font-size:12px; color:var(--text-muted); margin:0;">Taylor's University Student Council</p>
+    </div>
+  </div>
+
+  <div style="display:flex; gap:4px; border-bottom:0.5px solid var(--border); margin-bottom:1.25rem;">
+    <button id="tab-monitor" onclick="switchTab('monitor')" style="border:none; background:none; padding:8px 4px; margin-right:20px; font-weight:500; border-bottom:2px solid var(--accent);">Monitor</button>
+    <button id="tab-dev" onclick="switchTab('dev')" style="border:none; background:none; padding:8px 4px; margin-right:20px; font-weight:500; color:var(--text-muted); border-bottom:2px solid transparent;">Dev</button>
+  </div>
+
+  <div id="panel-monitor" style="display:flex; gap:16px; align-items:flex-start;">
+    <div style="flex:1; min-width:0;">
+      <div style="background:var(--surface-1); border-radius:var(--radius); padding:12px; margin-bottom:12px;">
+        <p style="font-size:12px; color:var(--text-secondary); margin:0 0 8px;">Build a query</p>
+        <div id="conditions" style="display:flex; flex-direction:column; gap:8px;"></div>
+        <button onclick="addCondition()" style="margin-top:8px;"><i class="ti ti-plus" style="font-size:14px; vertical-align:-2px;" aria-hidden="true"></i> Add condition</button>
+      </div>
+      <div style="display:flex; gap:8px; margin-bottom:12px;">
+        <button onclick="runQueryClick()"><i class="ti ti-player-play" style="font-size:14px; vertical-align:-2px;" aria-hidden="true"></i> Run query</button>
+        <span id="query-status" style="font-size:12px; color:var(--text-muted); align-self:center;"></span>
+      </div>
+      <div id="results-wrap"></div>
+    </div>
+
+    <div style="width:230px; flex-shrink:0; background:var(--surface-1); border-radius:var(--radius); padding:12px;">
+      <p style="font-size:12px; color:var(--text-secondary); margin:0 0 8px;">Unprocessed concerns</p>
+      <div id="unprocessed-list" style="display:flex; flex-direction:column; gap:6px; max-height:280px; overflow-y:auto;"></div>
+      <button onclick="compileAllClick()" style="width:100%; margin-top:12px;"><i class="ti ti-refresh" style="font-size:14px; vertical-align:-2px;" aria-hidden="true"></i> Compile all</button>
+      <p id="compile-status" style="font-size:12px; color:var(--text-muted); margin:8px 0 0;"></p>
+    </div>
+  </div>
+
+  <div id="panel-dev" style="display:none;">
+    <div style="background:var(--surface-1); border-radius:var(--radius); padding:12px; margin-bottom:12px;">
+      <p style="font-size:12px; color:var(--text-secondary); margin:0 0 8px;">Enter a test concern</p>
+      <textarea id="test-concern-input" rows="3" placeholder="The wifi in Block A keeps dropping during lectures" style="width:100%; resize:vertical;"></textarea>
+      <button onclick="submitTestConcernClick()" style="margin-top:8px;"><i class="ti ti-send" style="font-size:14px; vertical-align:-2px;" aria-hidden="true"></i> Submit test concern</button>
+    </div>
+    <div>
+      <p style="font-size:12px; color:var(--text-secondary); margin:0 0 6px;">Console</p>
+      <div id="console-log" style="background:var(--surface-0); border:0.5px solid var(--border); border-radius:var(--radius); padding:10px; font-family:var(--font-mono); font-size:12px; line-height:1.6; height:220px; overflow-y:auto; white-space:pre-wrap;"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function logLine(msg, color) {
+  var el = document.getElementById('console-log');
+  var line = document.createElement('div');
+  var t = new Date().toLocaleTimeString();
+  line.textContent = '[' + t + '] ' + msg;
+  if (color) line.style.color = color;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+var TABLES = {
+  RawData: ['EntryID', 'RawConcern', 'Date', 'Source'],
+  CompiledData: ['EntryID', 'DepartmentID', 'Reference'],
+  Department: ['DepartmentID', 'DepartmentName', 'Abbreviation', 'Description'],
+  KeyWords: ['KeyWord', 'InsertedDate', 'ManuallyInserted']
+};
+var OPERATORS = ['=', '!=', 'contains', '>', '<'];
+
+async function getTableNames() {
+  const res = await fetch('/api/schema/tables');
+  return await res.json();
+}
+
+async function getFieldsForTable(table) {
+  const res = await fetch('/api/schema/' + encodeURIComponent(table) + '/fields');
+  return await res.json();
+}
+
+async function runQuery(conditions) {
+  const res = await fetch('/api/query', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(conditions)
+  });
+  return await res.json();
+}
+
+async function getUnprocessedConcerns() {
+  const res = await fetch('/api/raw/unprocessed');
+  return await res.json();
+}
+
+async function compileAll() {
+  const res = await fetch('/api/compile-all', { method: 'POST' });
+  return await res.json();
+}
+
+async function submitTestConcern(text) {
+  const res = await fetch('/api/test/classify', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ text })
+  });
+  return await res.json();
+}
+
+async function addCondition() {
+  var wrap = document.getElementById('conditions');
+  var row = document.createElement('div');
+  row.style.cssText = 'display:flex; gap:6px;';
+
+  var tableSel = document.createElement('select');
+  (await getTableNames()).forEach(function (t) {
+    var o = document.createElement('option'); o.value = t; o.textContent = t; tableSel.appendChild(o);
+  });
+
+  var fieldSel = document.createElement('select');
+  var opSel = document.createElement('select');
+  OPERATORS.forEach(function (op) {
+    var o = document.createElement('option'); o.value = op; o.textContent = op; opSel.appendChild(o);
+  });
+
+  var valInput = document.createElement('input');
+  valInput.type = 'text'; valInput.placeholder = 'value'; valInput.style.cssText = 'width:90px;';
+
+  var delBtn = document.createElement('button');
+  delBtn.innerHTML = '<i class="ti ti-x" style="font-size:14px;" aria-hidden="true"></i>';
+  delBtn.setAttribute('aria-label', 'Remove condition');
+  delBtn.onclick = function () { row.remove(); };
+
+  async function refreshFields() {
+    fieldSel.innerHTML = '';
+    (await getFieldsForTable(tableSel.value)).forEach(function (f) {
+      var o = document.createElement('option'); o.value = f; o.textContent = f; fieldSel.appendChild(o);
+    });
+  }
+  tableSel.onchange = refreshFields;
+  await refreshFields();
+
+  row.appendChild(tableSel); row.appendChild(fieldSel); row.appendChild(opSel); row.appendChild(valInput); row.appendChild(delBtn);
+  wrap.appendChild(row);
+}
+
+function renderResults(rows) {
+  var wrap = document.getElementById('results-wrap');
+  if (!rows.length) {
+    wrap.innerHTML = '<p style="font-size:13px; color:var(--text-muted);">No rows match this query.</p>';
+    return;
+  }
+  var cols = Object.keys(rows[0]);
+  var html = '<div style="overflow-x:auto;"><table>';
+  html += '<tr>' + cols.map(function (c) { return '<th>' + c + '</th>'; }).join('') + '</tr>';
+  rows.forEach(function (r) {
+    html += '<tr>' + cols.map(function (c) { return '<td>' + r[c] + '</td>'; }).join('') + '</tr>';
+  });
+  html += '</table></div>';
+  wrap.innerHTML = html;
+}
+
+function renderUnprocessed(items) {
+  var wrap = document.getElementById('unprocessed-list');
+  wrap.innerHTML = '';
+  items.forEach(function (it) {
+    var card = document.createElement('div');
+    card.style.cssText = 'background:var(--surface-2); border:0.5px solid var(--border); border-radius:var(--radius); padding:8px;';
+    card.innerHTML = '<p style="font-size:11px; color:var(--text-muted); margin:0 0 2px;">Entry ' + it.EntryID + '</p><p style="font-size:12px; margin:0;">' + it.RawConcern + '</p>';
+    wrap.appendChild(card);
+  });
+}
+
+async function runQueryClick() {
+  document.getElementById('query-status').textContent = 'Running...';
+  var rows = await runQuery({});
+  renderResults(rows);
+  document.getElementById('query-status').textContent = rows.length + ' rows';
+}
+
+async function compileAllClick() {
+  var status = document.getElementById('compile-status');
+  status.textContent = 'Compiling...';
+  var result = await compileAll();
+  status.textContent = 'Processed ' + result.processed + ' (' + result.newDepartmentEntries + ' new, ' + result.matchedExisting + ' matched)';
+  renderUnprocessed(await getUnprocessedConcerns());
+}
+
+async function submitTestConcernClick() {
+  var input = document.getElementById('test-concern-input');
+  var text = input.value.trim();
+  if (!text) { logLine('Enter a concern before submitting.', 'var(--text-danger)'); return; }
+  logLine('Submitting: ' + text);
+  var result = await submitTestConcern(text);
+  logLine('Department: ' + result.department);
+  logLine('Keywords: ' + result.keywords.join(', '));
+  logLine('Rewrite: ' + result.rewrite);
+  logLine('Signature: ' + result.signature);
+}
+
+function switchTab(name) {
+  document.getElementById('panel-monitor').style.display = name === 'monitor' ? 'flex' : 'none';
+  document.getElementById('panel-dev').style.display = name === 'dev' ? 'block' : 'none';
+  document.getElementById('tab-monitor').style.borderBottomColor = name === 'monitor' ? 'var(--accent)' : 'transparent';
+  document.getElementById('tab-monitor').style.color = name === 'monitor' ? 'var(--text-primary)' : 'var(--text-muted)';
+  document.getElementById('tab-dev').style.borderBottomColor = name === 'dev' ? 'var(--accent)' : 'transparent';
+  document.getElementById('tab-dev').style.color = name === 'dev' ? 'var(--text-primary)' : 'var(--text-muted)';
+}
+
+(async function init() {
+  await addCondition();
+  renderUnprocessed(await getUnprocessedConcerns());
+  renderResults(await runQuery({}));
+  logLine('Console ready.');
+})();
+</script>
+</body>
+</html>`;
+
+function json(data, status) {
+  return new Response(JSON.stringify(data), {
+    status: status || 200,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+const TABLES = {
+  RawData: ["EntryID", "RawConcern", "Date", "Source"],
+  CompiledData: ["EntryID", "DepartmentID", "Reference"],
+  Department: ["DepartmentID", "DepartmentName", "Abbreviation", "Description"],
+  KeyWords: ["KeyWord", "InsertedDate", "ManuallyInserted"],
+};
+
+async function handleApi(request, env, ctx, url) {
+  const path = url.pathname;
+  const method = request.method;
+
+  if (path === "/api/schema/tables" && method === "GET") {
+    // TODO: derive this from env.DB, e.g.
+    // const { results } = await env.DB.prepare(
+    //   "SELECT name FROM sqlite_master WHERE type='table'"
+    // ).all();
+    // return json(results.map(r => r.name));
+    return json(Object.keys(TABLES));
+  }
+
+  const fieldsMatch = path.match(/^\/api\/schema\/([^/]+)\/fields$/);
+  if (fieldsMatch && method === "GET") {
+    // TODO: derive this from env.DB, e.g.
+    // const { results } = await env.DB.prepare(
+    //   "PRAGMA table_info(" + tableName + ")"
+    // ).all();
+    // return json(results.map(r => r.name));
+    const tableName = decodeURIComponent(fieldsMatch[1]);
+    return json(TABLES[tableName] || []);
+  }
+
+  if (path === "/api/query" && method === "POST") {
+    // TODO: build a parameterized SQL query from the posted conditions and run it against env.DB, e.g.
+    // const conditions = await request.json();
+    // const { sql, params } = buildSqlFromConditions(conditions); // your own builder
+    // const { results } = await env.DB.prepare(sql).bind(...params).all();
+    // return json(results);
+    return json([
+      { EntryID: 12, DepartmentName: "Information and Communication Technology", Reference: "concerns_may.csv:14" },
+      { EntryID: 27, DepartmentName: "Facilities Management", Reference: "concerns_may.csv:31" },
+      { EntryID: 33, DepartmentName: "Information and Communication Technology", Reference: "concerns_june.csv:2" },
+    ]);
+  }
+
+  if (path === "/api/raw/unprocessed" && method === "GET") {
+    // TODO: replace with a real D1 query, e.g.
+    // const { results } = await env.DB.prepare(
+    //   "SELECT r.EntryID, r.RawConcern FROM RawData r " +
+    //   "LEFT JOIN CompiledData c ON c.EntryID = r.EntryID " +
+    //   "WHERE c.EntryID IS NULL"
+    // ).all();
+    // return json(results);
+    return json([
+      { EntryID: 41, RawConcern: "Wifi keeps dropping in Block A lecture halls" },
+      { EntryID: 42, RawConcern: "No lockers available near Campus Central" },
+      { EntryID: 43, RawConcern: "MyTimes app crashes on login" },
+    ]);
+  }
+
+  if (path === "/api/compile-all" && method === "POST") {
+    // TODO: for each unprocessed RawData row:
+    //   1. call env.AI.run(...) to classify (department, keywords, rewrite)
+    //   2. build the signature (DepartmentID + sorted keywords)
+    //   3. check CompiledData for an existing match on that signature
+    //   4. if candidates exist, call env.AI.run(...) again to disambiguate
+    //   5. insert into CompiledData (+ CategorizedDataKeyWords), or link to the matched row
+    // return json({ processed, newDepartmentEntries, matchedExisting });
+    return json({ processed: 3, newDepartmentEntries: 2, matchedExisting: 1 });
+  }
+
+  if (path === "/api/test/classify" && method === "POST") {
+    // TODO: call env.AI.run(...) with the posted { text }, using the Department + KeyWords
+    // closed sets as the prompt's allowed values, temperature: 0 for determinism, e.g.
+    // const { text } = await request.json();
+    // const result = await env.AI.run("@cf/meta/llama-3.3-70b-instruct-fp8-fast", {
+    //   messages: [...],
+    //   temperature: 0,
+    // });
+    // return json(parsedResultFromModel);
+    return json({
+      department: "Information and Communication Technology",
+      keywords: ["wifi", "connectivity"],
+      rewrite: "Student reports intermittent Wi-Fi disconnections during lectures in Block A.",
+      signature: "10:connectivity,wifi",
+    });
+  }
+
+  return json({ error: "Not found" }, 404);
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    if (url.pathname === "/") {
-      return new Response(getHtmlPage('home'), { headers: { "content-type": "text/html" } });
-    }
-    if (url.pathname === "/dev") {
-      return new Response(getHtmlPage('dev'), { headers: { "content-type": "text/html" } });
+    if (url.pathname.startsWith("/api/")) {
+      return handleApi(request, env, ctx, url);
     }
 
-    // GET: Fetch metadata for the SQL Builder dropdowns
-    if (url.pathname === "/api/schema" && request.method === "GET") {
-      try {
-        // TODO: Query your DB to get table lists and columns
-        const schema = {}; 
-
-        return Response.json({ schema });
-      } catch (err) {
-        return Response.json({ error: err.message }, { status: 500 });
-      }
-    }
-
-    // POST: Execute the predefined dynamic dropdown query safely
-    if (url.pathname === "/api/query" && request.method === "POST") {
-      try {
-        const { column, table } = await request.json();
-
-        // TODO: Implement your own DB query handling using column and table
-        const results = []; 
-
-        return Response.json({ results });
-      } catch (err) {
-        return Response.json({ error: err.message }, { status: 500 });
-      }
-    }
-
-    // GET & POST: Main Concerns Endpoint Router
-    if (url.pathname === "/api/concerns") {
-      if (request.method === "GET") {
-        try {
-          // TODO: Fetch concerns records from your database
-          const results = []; 
-
-          return Response.json({ results });
-        } catch (err) {
-          return Response.json({ error: err.message }, { status: 500 });
-        }
-      }
-      
-      if (request.method === "POST") {
-        try {
-          const { text } = await request.json();
-          
-          // TODO: Ingest text into DB, run your own AI process, and get an identity back
-          const insertedId = 0;
-          const aiOutput = "{}"; 
-
-          return Response.json({ success: true, id: insertedId, ai_output: aiOutput });
-        } catch (err) {
-          return Response.json({ error: err.message }, { status: 500 });
-        }
-      }
-    }
-
-    // POST: Alternate route support to catch explicit single inference runs safely
-    if (url.pathname === "/api/ai-process" && request.method === "POST") {
-      try {
-        const { text } = await request.json();
-        
-        // TODO: Handle single AI inference payload yourself
-        const aiOutput = "{}"; 
-
-        return Response.json({ success: true, ai_output: aiOutput });
-      } catch (err) {
-        return Response.json({ error: err.message }, { status: 500 });
-      }
-    }
-
-    // POST: Run batch compilation over all lingering unprocessed entries
-    if (url.pathname === "/api/compile-all" && request.method === "POST") {
-      try {
-        // TODO: Loop over unprocessed entries, call AI, update rows
-        const logs = []; 
-
-        return Response.json({ success: true, logs });
-      } catch (err) {
-        return Response.json({ error: err.message }, { status: 500 });
-      }
-    }
-
-    return new Response("Not Found", { status: 404 });
-  }
+    return new Response(HTML_PAGE, {
+      headers: { "content-type": "text/html;charset=UTF-8" },
+    });
+  },
 };
-
-// =========================================================================
-// 3. SINGLE-FILE UI COMPONENT SYSTEM
-// =========================================================================
-function getHtmlPage(page) {
-  const isHome = page === 'home';
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tusc Concern Compiler</title>
-  <style>
-    :root {
-      --bg: #111827; --card-bg: #1f2937; --text: #f9fafb;
-      --text-muted: #9ca3af; --accent: #3b82f6; --accent-hover: #2563eb;
-      --border: #374151; --success: #10b981;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
-    body { background-color: var(--bg); color: var(--text); display: flex; flex-direction: column; min-height: 100vh; }
-    header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 2rem; background: var(--card-bg); border-bottom: 1px solid var(--border); }
-    .toggle-btn { background: var(--accent); color: white; border: none; padding: 0.5rem 1rem; border-radius: 0.375rem; cursor: pointer; text-decoration: none; font-weight: 500; }
-    .toggle-btn:hover { background: var(--accent-hover); }
-    main { padding: 2rem; flex: 1; max-width: 1400px; width: 100%; margin: 0 auto; display: grid; gap: 2rem; }
-    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 0.5rem; padding: 1.5rem; }
-    h2 { margin-bottom: 1rem; font-size: 1.25rem; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;}
-    .sql-builder { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem;}
-    select, textarea, input { background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 0.5rem; border-radius: 0.375rem; font-size: 0.9rem; }
-    select:focus, textarea:focus { outline: 2px solid var(--accent); }
-    button.primary { background: var(--accent); color: white; border: none; padding: 0.5rem 1rem; border-radius: 0.375rem; cursor: pointer; }
-    button.primary:hover { background: var(--accent-hover); }
-    .table-container { overflow-x: auto; margin-top: 1rem; background: var(--bg); border-radius: 0.375rem; border: 1px solid var(--border);}
-    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem; }
-    th, td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); }
-    th { background: rgba(255,255,255,0.05); font-weight: 600; }
-    .flyout { position: fixed; top: 0; right: -450px; width: 450px; height: 100%; background: var(--card-bg); border-left: 1px solid var(--border); box-shadow: -4px 0 15px rgba(0,0,0,0.5); transition: right 0.3s ease; display: flex; flex-direction: column; z-index: 100; }
-    .flyout.open { right: 0; }
-    .flyout-header { padding: 1.5rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
-    .flyout-content { padding: 1.5rem; flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem; }
-    .flyout-footer { padding: 1.5rem; border-top: 1px solid var(--border); }
-    .close-btn { background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer; }
-    .concern-item { background: var(--bg); border: 1px solid var(--border); padding: 0.75rem; border-radius: 0.375rem; margin-bottom: 0.75rem; }
-    .status-badge { display: inline-block; padding: 0.15rem 0.4rem; font-size: 0.75rem; border-radius: 0.25rem; font-weight: bold; margin-top: 0.25rem;}
-    .status-unprocessed { background: #b45309; color: #fef3c7; }
-    .status-processed { background: #065f46; color: #d1fae5; }
-    .console { background: #000; font-family: monospace; color: #10b981; padding: 1rem; border-radius: 0.375rem; height: 250px; overflow-y: auto; font-size: 0.85rem; line-height: 1.4; }
-    .form-group { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; }
-    textarea { resize: vertical; min-height: 120px; }
-    pre { background: rgba(0,0,0,0.4); padding: 0.5rem; border-radius: 0.25rem; overflow-x: auto; margin-top: 0.25rem; font-family: monospace; font-size: 0.8rem; color: #a7f3d0;}
-  </style>
-</head>
-<body>
-  <header>
-    <a href="${isHome ? '/dev' : '/'}" class="toggle-btn">${isHome ? '➔ Switch to Dev Page' : '➔ Switch to Home Page'}</a>
-    <h1>Tusc Concern Compiler ${isHome ? '' : '[Dev Mode]'}</h1>
-    ${isHome ? `<button class="primary" onclick="toggleFlyout(true)">View Unprocessed Pipeline</button>` : '<div></div>'}
-  </header>
-  <main style="${isHome ? 'grid-template-columns: 1fr;' : 'grid-template-columns: 1fr 1fr;'}">
-    ${isHome ? `
-      <section class="card">
-        <h2>Predefined SQL Statement Runner</h2>
-        <div class="sql-builder">
-          <span>SELECT</span>
-          <select id="colSelect"><option value="*">* (All Columns)</option></select>
-          <span>FROM</span>
-          <select id="tableSelect" onchange="updateColumnDropdown()"><option value="">Select Table...</option></select>
-          <button class="primary" onclick="runPredefinedQuery()">Execute Query</button>
-        </div>
-        <div class="table-container">
-          <table id="queryResultTable"><thead><tr><th>No data queried yet</th></tr></thead><tbody></tbody></table>
-        </div>
-      </section>
-      <section class="card">
-        <h2>All Tracked Concerns & Logs</h2>
-        <div id="allConcernsList">Loading concerns...</div>
-      </section>
-      <div id="flyoutMenu" class="flyout">
-        <div class="flyout-header">
-          <h3>Unprocessed Pipeline</h3>
-          <button class="close-btn" onclick="toggleFlyout(false)">&times;</button>
-        </div>
-        <div class="flyout-content" id="unprocessedContainer">Loading stack...</div>
-        <div class="flyout-footer"><button class="primary" style="width: 100%; padding: 0.75rem;" onclick="compileAllUnprocessed()">Compile All via AI</button></div>
-      </div>
-    ` : `
-      <section class="card">
-        <h2>Manual Concern Ingestion Entry</h2>
-        <div class="form-group">
-          <label>Describe the student concern:</label>
-          <textarea id="concernInput" placeholder="Type raw student complaint here..."></textarea>
-        </div>
-        <button class="primary" onclick="submitManualConcern()">Ingest and Deterministically Classify</button>
-      </section>
-      <section class="card" style="display: flex; flex-direction: column; gap: 1rem;">
-        <div>
-          <h2>Deterministic JSON Schema Target Output</h2>
-          <div id="aiOutputView" class="concern-item" style="min-height: 120px; background: var(--bg); font-family: monospace; white-space: pre-wrap;">Awaiting submission...</div>
-        </div>
-        <div>
-          <h2>Environment Runtime Log Console</h2>
-          <div id="devConsole" class="console">[System initialized at execution sandbox branch runtime]</div>
-        </div>
-      </section>
-    `}
-  </main>
-  <script>
-    let dbSchema = {};
-    function logToConsole(message) {
-      const consoleBox = document.getElementById('devConsole');
-      if (!consoleBox) return;
-      const ts = new Date().toLocaleTimeString();
-      consoleBox.innerHTML += \`<div>[\${ts}] \${message}</div>\`;
-      consoleBox.scrollTop = consoleBox.scrollHeight;
-    }
-    function formatOutputText(text) {
-      try {
-        const obj = JSON.parse(text);
-        return \`<pre>\${JSON.stringify(obj, null, 2)}</pre>\`;
-      } catch(e) { return text; }
-    }
-    if (${isHome}) {
-      function toggleFlyout(open) { document.getElementById('flyoutMenu').classList.toggle('open', open); }
-      async function loadSchemaMetaData() {
-        try {
-          const res = await fetch('/api/schema');
-          const data = await res.json();
-          if(data.error) return;
-          dbSchema = data.schema;
-          const tableSel = document.getElementById('tableSelect');
-          tableSel.innerHTML = '<option value="">Select Table...</option>';
-          Object.keys(dbSchema).forEach(table => { tableSel.innerHTML += \`<option value="\${table}">\${table}</option>\`; });
-        } catch(e) { console.error(e); }
-      }
-      function updateColumnDropdown() {
-        const table = document.getElementById('tableSelect').value;
-        const colSel = document.getElementById('colSelect');
-        colSel.innerHTML = '<option value="*">* (All Columns)</option>';
-        if (table && dbSchema[table]) {
-          dbSchema[table].forEach(col => { colSel.innerHTML += \`<option value="\${col}">\${col}</option>\`; });
-        }
-      }
-      async function runPredefinedQuery() {
-        const table = document.getElementById('tableSelect').value;
-        const column = document.getElementById('colSelect').value;
-        if(!table) return alert("Select a target platform entity table first.");
-        const tableHead = document.querySelector('#queryResultTable thead');
-        const tableBody = document.querySelector('#queryResultTable tbody');
-        try {
-          const res = await fetch('/api/query', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ column, table }) });
-          const data = await res.json();
-          if(data.error) {
-            tableHead.innerHTML = '<tr><th>Error occurred</th></tr>';
-            tableBody.innerHTML = \`<tr><td>\${data.error}</td></tr>\`;
-            return;
-          }
-          if(!data.results || data.results.length === 0) {
-            tableHead.innerHTML = '<tr><th>Empty Dataset</th></tr>';
-            tableBody.innerHTML = '<tr><td>No records matched execution parameters.</td></tr>';
-            return;
-          }
-          const columns = Object.keys(data.results[0]);
-          tableHead.innerHTML = '<tr>' + columns.map(c => \`<th>\${c}</th>\`).join('') + '</tr>';
-          tableBody.innerHTML = data.results.map(row => '<tr>' + columns.map(c => { const cellVal = row[c]; return \`<td>\${typeof cellVal === 'object' && cellVal !== null ? JSON.stringify(cellVal) : (cellVal !== null ? cellVal : '')}</td>\`; }).join('') + '</tr>').join('');
-        } catch (e) { alert("Failed query dispatch operation."); }
-      }
-      async function fetchConcernsPipeline() {
-        try {
-          const res = await fetch('/api/concerns');
-          const data = await res.json();
-          const allList = document.getElementById('allConcernsList');
-          const unprocList = document.getElementById('unprocessedContainer');
-          allList.innerHTML = ''; unprocList.innerHTML = '';
-          let unprocessedCount = 0;
-          data.results.forEach(item => {
-            const el = document.createElement('div');
-            el.className = 'concern-item';
-            el.innerHTML = \`<div><strong>ID \${item.id}:</strong> \${item.text}</div><span class="status-badge status-\${item.status}">\${item.status}</span>\${item.ai_output ? \`<div style="margin-top:0.5rem;"><strong>Analysis Mapping:</strong> \${formatOutputText(item.ai_output)}</div>\` : ''}\`;
-            allList.appendChild(el.cloneNode(true));
-            if(item.status === 'unprocessed') { unprocessedCount++; unprocList.appendChild(el); }
-          });
-          if(unprocessedCount === 0) { unprocList.innerHTML = '<div style="color:var(--text-muted)">All tasks cleared in pipeline stack context.</div>'; }
-        } catch(e) { console.error(e); }
-      }
-      async function compileAllUnprocessed() {
-        try {
-          const res = await fetch('/api/compile-all', { method: 'POST' });
-          const data = await res.json();
-          alert(data.message || "Deterministic compilation complete.");
-          fetchConcernsPipeline();
-          toggleFlyout(false);
-        } catch(e) { alert("Compilation thread exception encountered."); }
-      }
-      loadSchemaMetaData(); fetchConcernsPipeline();
-    }
-    if (!${isHome}) {
-      async function submitManualConcern() {
-        const textarea = document.getElementById('concernInput');
-        const text = textarea.value.trim();
-        if(!text) return alert("Write an issue description prior to processing.");
-        logToConsole(\`Sending concern string payload to remote classification pipeline...\\n"\${text}"\`);
-        try {
-          const res = await fetch('/api/concerns', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ text }) });
-          const data = await res.json();
-          if(data.success) {
-            logToConsole(\`Success: Ingested record row ID \${data.id}\`);
-            document.getElementById('aiOutputView').innerHTML = formatOutputText(data.ai_output);
-            logToConsole(\`Deterministic classification JSON loaded with locked 0 temperature.\`);
-            textarea.value = '';
-          } else { logToConsole(\`Error event response: \${data.error}\`); }
-        } catch (e) { logToConsole(\`Critical Network Transaction failure: \${e.message}\`); }
-      }
-    }
-  </script>
-</body>
-</html>`;
-}
