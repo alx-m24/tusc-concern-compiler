@@ -367,7 +367,7 @@ async function handleApi(request, env, ctx, url) {
     }
   
     const { results } = await env.DB.prepare(
-      "INSERT INTO RawData (data) VALUES (?)"
+      "INSERT INTO RawData (json) VALUES (?)"
     )
       .bind(JSON.stringify(body))
       .all();
