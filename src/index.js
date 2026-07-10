@@ -463,6 +463,7 @@ async function handleApi(request, env, ctx, url) {
 
   const fieldsMatch = path.match(/^\/api\/schema\/([^/]+)\/fields$/);
   if (fieldsMatch && method === "GET") {
+    const tableName = fieldsMatch[1];
     const { results } = await env.DB.prepare(
         "PRAGMA table_info(" + tableName + ")"
     ).all();
