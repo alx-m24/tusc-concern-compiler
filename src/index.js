@@ -455,9 +455,13 @@ async function handleApi(request, env, ctx, url) {
   const method = request.method;
 
   if (path === "/api/schema/tables" && method === "GET") {
-    const { results } = await env.DB.prepare(
-       "SELECT name FROM sqlite_master WHERE type='table'"
-    ).all();
+    const { results } = await env.DB.prepare(`
+      SELECT name
+      FROM sqlite_master
+      WHERE type = 'table'
+        AND name NOT IN ('_cf_KV', 'sqlite_sequence')
+    `).all();
+  
     return json(results.map(r => r.name));
   }
 
