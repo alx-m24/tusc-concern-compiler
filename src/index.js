@@ -37,16 +37,75 @@ const HTML_PAGE = `<!doctype html>
     background: var(--surface-2);
     color: var(--text-primary);
   }
-  button { cursor: pointer; }
+  button { cursor: pointer; white-space: nowrap; }
   button:hover { background: var(--surface-1); }
   table { border-collapse: collapse; width: 100%; font-size: 13px; }
   th, td { text-align: left; padding: 6px 8px; border-bottom: 0.5px solid var(--border); }
   th { color: var(--text-secondary); font-weight: 500; }
+
+  .dept-tab {
+    border: none;
+    background: none;
+    padding: 6px 12px;
+    font-weight: 500;
+    color: var(--text-muted);
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+  }
+  .dept-tab.active {
+    color: var(--text-primary);
+    border-bottom-color: var(--accent);
+  }
+  .dept-tabs-scroll {
+    display: flex;
+    gap: 2px;
+    overflow-x: auto;
+    flex: 1;
+    min-width: 0;
+    border-bottom: 0.5px solid var(--border);
+  }
+
+  #flyout-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.15);
+    z-index: 40;
+  }
+  #pending-flyout {
+    position: fixed;
+    top: 0;
+    right: -340px;
+    width: 320px;
+    height: 100%;
+    background: var(--surface-2);
+    border-left: 0.5px solid var(--border);
+    box-shadow: -4px 0 16px rgba(0,0,0,0.08);
+    transition: right 0.2s ease;
+    z-index: 50;
+    padding: 16px;
+    overflow-y: auto;
+  }
+  #pending-flyout.open { right: 0; }
+
+  .pending-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 10px;
+    line-height: 1;
+    padding: 3px 5px;
+    border-radius: 999px;
+    min-width: 14px;
+    text-align: center;
+  }
 </style>
 </head>
 <body>
 
-<div style="max-width: 900px; margin: 0 auto; font-family: var(--font-sans);">
+<div style="max-width: 1000px; margin: 0 auto; font-family: var(--font-sans);">
 
   <div style="display:flex; align-items:center; gap:10px; margin-bottom:1.25rem;">
     <div style="width:34px; height:34px; border-radius:50%; background:var(--accent); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:500; font-size:14px; flex-shrink:0;">S</div>
@@ -61,26 +120,21 @@ const HTML_PAGE = `<!doctype html>
     <button id="tab-dev" onclick="switchTab('dev')" style="border:none; background:none; padding:8px 4px; margin-right:20px; font-weight:500; color:var(--text-muted); border-bottom:2px solid transparent;">Dev</button>
   </div>
 
-  <div id="panel-monitor" style="display:flex; gap:16px; align-items:flex-start;">
-    <div style="flex:1; min-width:0;">
-      <div style="background:var(--surface-1); border-radius:var(--radius); padding:12px; margin-bottom:12px;">
-        <p style="font-size:12px; color:var(--text-secondary); margin:0 0 8px;">Build a query</p>
-        <div id="conditions" style="display:flex; flex-direction:column; gap:8px;"></div>
-        <button onclick="addCondition()" style="margin-top:8px;"><i class="ti ti-plus" style="font-size:14px; vertical-align:-2px;" aria-hidden="true"></i> Add condition</button>
+  <div id="panel-monitor">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px;">
+      <div id="dept-tabs" class="dept-tabs-scroll"></div>
+      <div style="display:flex; gap:8px; align-items:center; flex-shrink:0;">
+        <button id="pending-btn" onclick="togglePendingFlyout()" style="position:relative;">
+          <i class="ti ti-bell" style="font-size:14px; vertical-align:-2px;" aria-hidden="true"></i> Pending
+          <span id="pending-badge" class="pending-badge" style="display:none;"></span>
+        </button>
+        <button onclick="compileAllClick()"><i class="ti ti-refresh" style="font-size:14px; vertical-align:-2px;" aria-hidden="true"></i> Compile all</button>
       </div>
-      <div style="display:flex; gap:8px; margin-bottom:12px;">
-        <button onclick="runQueryClick()"><i class="ti ti-player-play" style="font-size:14px; vertical-align:-2px;" aria-hidden="true"></i> Run query</button>
-        <span id="query-status" style="font-size:12px; color:var(--text-muted); align-self:center;"></span>
-      </div>
-      <div id="results-wrap"></div>
     </div>
 
-    <div style="width:230px; flex-shrink:0; background:var(--surface-1); border-radius:var(--radius); padding:12px;">
-      <p style="font-size:12px; color:var(--text-secondary); margin:0 0 8px;">Unprocessed concerns</p>
-      <div id="unprocessed-list" style="display:flex; flex-direction:column; gap:6px; max-height:280px; overflow-y:auto;"></div>
-      <button onclick="compileAllClick()" style="width:100%; margin-top:12px;"><i class="ti ti-refresh" style="font-size:14px; vertical-align:-2px;" aria-hidden="true"></i> Compile all</button>
-      <p id="compile-status" style="font-size:12px; color:var(--text-muted); margin:8px 0 0;"></p>
-    </div>
+    <p id="compile-status" style="font-size:12px; color:var(--text-muted); margin:0 0 10px;"></p>
+
+    <div id="dept-table-wrap"></div>
   </div>
 
   <div id="panel-dev" style="display:none;">
@@ -89,12 +143,33 @@ const HTML_PAGE = `<!doctype html>
       <textarea id="test-concern-input" rows="3" placeholder="The wifi in Block A keeps dropping during lectures" style="width:100%; resize:vertical;"></textarea>
       <button onclick="submitTestConcernClick()" style="margin-top:8px;"><i class="ti ti-send" style="font-size:14px; vertical-align:-2px;" aria-hidden="true"></i> Submit test concern</button>
     </div>
+
+    <div style="background:var(--surface-1); border-radius:var(--radius); padding:12px; margin-bottom:12px;">
+      <p style="font-size:12px; color:var(--text-secondary); margin:0 0 8px;">Advanced query</p>
+      <div id="conditions" style="display:flex; flex-direction:column; gap:8px;"></div>
+      <div style="display:flex; gap:8px; margin-top:8px;">
+        <button onclick="addCondition()"><i class="ti ti-plus" style="font-size:14px; vertical-align:-2px;" aria-hidden="true"></i> Add condition</button>
+        <button onclick="runQueryClick()"><i class="ti ti-player-play" style="font-size:14px; vertical-align:-2px;" aria-hidden="true"></i> Run query</button>
+        <span id="query-status" style="font-size:12px; color:var(--text-muted); align-self:center;"></span>
+      </div>
+      <div id="results-wrap" style="margin-top:10px;"></div>
+    </div>
+
     <div>
       <p style="font-size:12px; color:var(--text-secondary); margin:0 0 6px;">Console</p>
       <div id="console-log" style="background:var(--surface-0); border:0.5px solid var(--border); border-radius:var(--radius); padding:10px; font-family:var(--font-mono); font-size:12px; line-height:1.6; height:220px; overflow-y:auto; white-space:pre-wrap;"></div>
     </div>
   </div>
 
+</div>
+
+<div id="flyout-backdrop" onclick="togglePendingFlyout()"></div>
+<div id="pending-flyout">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+    <p style="font-weight:500; margin:0;">Pending concerns</p>
+    <button onclick="togglePendingFlyout()"><i class="ti ti-x" style="font-size:14px;" aria-hidden="true"></i></button>
+  </div>
+  <div id="pending-list" style="display:flex; flex-direction:column; gap:6px;"></div>
 </div>
 
 <script>
@@ -116,6 +191,9 @@ var TABLES = {
 };
 var OPERATORS = ['=', '!=', 'contains', '>', '<'];
 
+var departments = [];
+var currentDepartmentId = null;
+
 async function getTableNames() {
   const res = await fetch('/api/schema/tables');
   return await res.json();
@@ -132,6 +210,16 @@ async function runQuery(conditions) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(conditions)
   });
+  return await res.json();
+}
+
+async function getDepartments() {
+  const res = await fetch('/api/departments');
+  return await res.json();
+}
+
+async function getCompiledForDepartment(departmentId) {
+  const res = await fetch('/api/compiled?departmentId=' + encodeURIComponent(departmentId));
   return await res.json();
 }
 
@@ -207,15 +295,76 @@ function renderResults(rows) {
   wrap.innerHTML = html;
 }
 
-function renderUnprocessed(items) {
-  var wrap = document.getElementById('unprocessed-list');
+function renderDeptTabs() {
+  var wrap = document.getElementById('dept-tabs');
+  wrap.innerHTML = '';
+  departments.forEach(function (d) {
+    var btn = document.createElement('button');
+    btn.className = 'dept-tab' + (d.DepartmentID === currentDepartmentId ? ' active' : '');
+    btn.textContent = d.Abbreviation || d.DepartmentName;
+    btn.title = d.DepartmentName;
+    btn.onclick = function () { selectDepartment(d.DepartmentID); };
+    wrap.appendChild(btn);
+  });
+}
+
+function renderDeptTable(rows) {
+  var wrap = document.getElementById('dept-table-wrap');
+  if (!rows.length) {
+    wrap.innerHTML = '<p style="font-size:13px; color:var(--text-muted);">No compiled concerns for this department yet.</p>';
+    return;
+  }
+  var cols = Object.keys(rows[0]);
+  var html = '<div style="overflow-x:auto;"><table>';
+  html += '<tr>' + cols.map(function (c) { return '<th>' + c + '</th>'; }).join('') + '</tr>';
+  rows.forEach(function (r) {
+    html += '<tr>' + cols.map(function (c) { return '<td>' + r[c] + '</td>'; }).join('') + '</tr>';
+  });
+  html += '</table></div>';
+  wrap.innerHTML = html;
+}
+
+function renderPending(items) {
+  var wrap = document.getElementById('pending-list');
   wrap.innerHTML = '';
   items.forEach(function (it) {
     var card = document.createElement('div');
-    card.style.cssText = 'background:var(--surface-2); border:0.5px solid var(--border); border-radius:var(--radius); padding:8px;';
+    card.style.cssText = 'background:var(--surface-1); border:0.5px solid var(--border); border-radius:var(--radius); padding:8px;';
     card.innerHTML = '<p style="font-size:11px; color:var(--text-muted); margin:0 0 2px;">Entry ' + it.EntryID + '</p><p style="font-size:12px; margin:0;">' + it.RawConcern + '</p>';
     wrap.appendChild(card);
   });
+
+  var badge = document.getElementById('pending-badge');
+  if (items.length > 0) {
+    badge.textContent = items.length;
+    badge.style.display = 'inline-block';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+async function selectDepartment(departmentId) {
+  currentDepartmentId = departmentId;
+  renderDeptTabs();
+  var rows = await getCompiledForDepartment(departmentId);
+  renderDeptTable(rows);
+}
+
+async function refreshPending() {
+  renderPending(await getUnprocessedConcerns());
+}
+
+function togglePendingFlyout() {
+  var flyout = document.getElementById('pending-flyout');
+  var backdrop = document.getElementById('flyout-backdrop');
+  var isOpen = flyout.classList.contains('open');
+  if (isOpen) {
+    flyout.classList.remove('open');
+    backdrop.style.display = 'none';
+  } else {
+    flyout.classList.add('open');
+    backdrop.style.display = 'block';
+  }
 }
 
 async function runQueryClick() {
@@ -230,7 +379,10 @@ async function compileAllClick() {
   status.textContent = 'Compiling...';
   var result = await compileAll();
   status.textContent = 'Processed ' + result.processed + ' (' + result.newDepartmentEntries + ' new, ' + result.matchedExisting + ' matched)';
-  renderUnprocessed(await getUnprocessedConcerns());
+  await refreshPending();
+  if (currentDepartmentId !== null) {
+    renderDeptTable(await getCompiledForDepartment(currentDepartmentId));
+  }
 }
 
 async function submitTestConcernClick() {
@@ -246,7 +398,7 @@ async function submitTestConcernClick() {
 }
 
 function switchTab(name) {
-  document.getElementById('panel-monitor').style.display = name === 'monitor' ? 'flex' : 'none';
+  document.getElementById('panel-monitor').style.display = name === 'monitor' ? 'block' : 'none';
   document.getElementById('panel-dev').style.display = name === 'dev' ? 'block' : 'none';
   document.getElementById('tab-monitor').style.borderBottomColor = name === 'monitor' ? 'var(--accent)' : 'transparent';
   document.getElementById('tab-monitor').style.color = name === 'monitor' ? 'var(--text-primary)' : 'var(--text-muted)';
@@ -255,9 +407,12 @@ function switchTab(name) {
 }
 
 (async function init() {
+  departments = await getDepartments();
+  if (departments.length) {
+    await selectDepartment(departments[0].DepartmentID);
+  }
+  await refreshPending();
   await addCondition();
-  renderUnprocessed(await getUnprocessedConcerns());
-  renderResults(await runQuery({}));
   logLine('Console ready.');
 })();
 </script>
@@ -271,11 +426,28 @@ function json(data, status) {
   });
 }
 
-const TABLES = {
-  RawData: ["EntryID", "RawConcern", "Date", "Source"],
-  CompiledData: ["EntryID", "DepartmentID", "Reference"],
-  Department: ["DepartmentID", "DepartmentName", "Abbreviation", "Description"],
-  KeyWords: ["KeyWord", "InsertedDate", "ManuallyInserted"],
+// TODO: replace with a real D1 query per department, e.g.
+// const { results } = await env.DB.prepare(
+//   "SELECT c.EntryID, r.RawConcern, r.Date, c.Reference, " +
+//   "GROUP_CONCAT(k.KeyWord, ', ') as Keywords " +
+//   "FROM CompiledData c " +
+//   "JOIN RawData r ON r.EntryID = c.EntryID " +
+//   "LEFT JOIN CategorizedDataKeyWords ck ON ck.EntryID = c.EntryID " +
+//   "LEFT JOIN KeyWords k ON k.KeyWord = ck.KeyWord " +
+//   "WHERE c.DepartmentID = ? " +
+//   "GROUP BY c.EntryID"
+// ).bind(departmentId).all();
+const STUB_COMPILED_BY_DEPARTMENT = {
+  1: [
+    { EntryID: 12, RawConcern: "Wifi keeps dropping in Block A lecture halls", Keywords: "wifi, connectivity", Date: "2026-05-14", Reference: "concerns_may.csv:14" },
+    { EntryID: 33, RawConcern: "MyTimes app crashes on login", Keywords: "app, login", Date: "2026-06-02", Reference: "concerns_june.csv:2" },
+  ],
+  2: [
+    { EntryID: 27, RawConcern: "No lockers available near Campus Central", Keywords: "lockers, facilities", Date: "2026-05-31", Reference: "concerns_may.csv:31" },
+  ],
+  3: [],
+  4: [],
+  5: [],
 };
 
 async function handleApi(request, env, ctx, url) {
@@ -283,23 +455,32 @@ async function handleApi(request, env, ctx, url) {
   const method = request.method;
 
   if (path === "/api/schema/tables" && method === "GET") {
-    // TODO: derive this from env.DB, e.g.
-    // const { results } = await env.DB.prepare(
-    //   "SELECT name FROM sqlite_master WHERE type='table'"
-    // ).all();
-    // return json(results.map(r => r.name));
-    return json(Object.keys(TABLES));
+    const { results } = await env.DB.prepare(
+       "SELECT name FROM sqlite_master WHERE type='table'"
+    ).all();
+    return json(results.map(r => r.name));
   }
 
   const fieldsMatch = path.match(/^\/api\/schema\/([^/]+)\/fields$/);
   if (fieldsMatch && method === "GET") {
-    // TODO: derive this from env.DB, e.g.
-    // const { results } = await env.DB.prepare(
-    //   "PRAGMA table_info(" + tableName + ")"
-    // ).all();
-    // return json(results.map(r => r.name));
-    const tableName = decodeURIComponent(fieldsMatch[1]);
-    return json(TABLES[tableName] || []);
+    const { results } = await env.DB.prepare(
+        "PRAGMA table_info(" + tableName + ")"
+    ).all();
+    return json(results.map(r => r.name));
+  }
+
+  if (path === "/api/departments" && method === "GET") {
+    const { results } = await env.DB.prepare(
+       "SELECT d.* FROM Department d "
+     ).all();
+     return json(results);
+  }
+
+  if (path === "/api/compiled" && method === "GET") {
+    const { results } = await env.DB.prepare(
+       "SELECT c.* FROM CompiledData c "
+     ).all();
+     return json(results);
   }
 
   if (path === "/api/query" && method === "POST") {
@@ -316,17 +497,12 @@ async function handleApi(request, env, ctx, url) {
   }
 
   if (path === "/api/raw/unprocessed" && method === "GET") {
-    // TODO: replace with a real D1 query, e.g.
-    // const { results } = await env.DB.prepare(
-    //   "SELECT r.EntryID, r.RawConcern FROM RawData r " +
-    //   "LEFT JOIN CompiledData c ON c.EntryID = r.EntryID " +
-    //   "WHERE c.EntryID IS NULL"
-    // ).all();
-    // return json(results);
-    return json([
-      { EntryID: 41, RawConcern: "Wifi keeps dropping in Block A lecture halls" },
-      { EntryID: 42, RawConcern: "No lockers available near Campus Central" },
-      { EntryID: 43, RawConcern: "MyTimes app crashes on login" },
+    const { results } = await env.DB.prepare(
+       "SELECT r.EntryID, r.RawConcern FROM RawData r " +
+       "LEFT JOIN CompiledData c ON c.EntryID = r.EntryID " +
+       "WHERE c.EntryID IS NULL"
+     ).all();
+     return json(results);
     ]);
   }
 
@@ -365,13 +541,13 @@ async function handleApi(request, env, ctx, url) {
     } catch (err) {
       return json({ error: "Invalid JSON" }, 400);
     }
-  
+
     const { results } = await env.DB.prepare(
       "INSERT INTO RawData (json) VALUES (?)"
     )
       .bind(JSON.stringify(body))
       .all();
-  
+
     return json(results);
   }
 
