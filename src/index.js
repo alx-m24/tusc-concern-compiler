@@ -503,7 +503,6 @@ async function handleApi(request, env, ctx, url) {
        "WHERE c.EntryID IS NULL"
      ).all();
      return json(results);
-    );
   }
 
   if (path === "/api/compile-all" && method === "POST") {
