@@ -358,6 +358,23 @@ async function handleApi(request, env, ctx, url) {
     });
   }
 
+  if (path === "/api/google-forms" && method === "POST") {
+    let body;
+    try {
+      body = await request.json();
+    } catch (err) {
+      return json({ error: "Invalid JSON" }, 400);
+    }
+  
+    const { results } = await env.DB.prepare(
+      "INSERT INTO RawData (data) VALUES (?)"
+    )
+      .bind(JSON.stringify(body))
+      .all();
+  
+    return json(results);
+  }
+
   return json({ error: "Not found" }, 404);
 }
 
