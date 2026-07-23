@@ -482,10 +482,19 @@ async function handleApi(request, env, ctx, url) {
   }
 
   if (path === "/api/compiled" && method === "GET") {
-    const { results } = await env.DB.prepare(
+    if (url.searchParams.has("departmentId")) {
+     const { results } = await env.DB.prepare(
+       "SELECT c.* FROM CompiledData c " +
+        "WHERE c.DepartmentID = url.searchParams.get("departmentId") 
+     ).all();
+     return json(results);
+    }
+    else {
+     const { results } = await env.DB.prepare(
        "SELECT c.* FROM CompiledData c "
      ).all();
      return json(results);
+    }
   }
 
   if (path === "/api/query" && method === "POST") {
@@ -546,11 +555,14 @@ async function handleApi(request, env, ctx, url) {
       return json({ error: "Invalid JSON" }, 400);
     }
 
+    const today = new Date().toISOString().split('T')[0];
+    const data = JSON.parse(data);
+
     const { results } = await env.DB.prepare(
-      "INSERT INTO RawData (json) VALUES (?)"
+      "INSERT INTO RawData (RawConcern, dateEntered, status, source, json) VALUES (?, 'pending', 'FCF', ?)"
     )
-      .bind(JSON.stringify(body))
-      .all();
+      .bind(data["What is your concern(s)?"], today, JSON.stringify(body))
+      .run();
 
     return json(results);
   }
