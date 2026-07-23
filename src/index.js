@@ -482,18 +482,22 @@ async function handleApi(request, env, ctx, url) {
   }
 
   if (path === "/api/compiled" && method === "GET") {
-    if (url.searchParams.has("departmentId")) {
-     const { results } = await env.DB.prepare(
-       "SELECT c.* FROM CompiledData c " +
-        "WHERE c.DepartmentID = url.searchParams.get("departmentId") 
-     ).all();
-     return json(results);
-    }
-    else {
-     const { results } = await env.DB.prepare(
-       "SELECT c.* FROM CompiledData c "
-     ).all();
-     return json(results);
+    const departmentId = url.searchParams.get("departmentId");
+  
+    if (departmentId) {
+      const { results } = await env.DB.prepare(
+        "SELECT c.* FROM CompiledData c WHERE c.DepartmentID = ?"
+      )
+        .bind(departmentId)
+        .all();
+  
+      return json(results);
+    } else {
+      const { results } = await env.DB.prepare(
+        "SELECT c.* FROM CompiledData c"
+      ).all();
+  
+      return json(results);
     }
   }
 
