@@ -52,7 +52,7 @@ async function handleApi(request, env, url) {
     }
 
     const result = await env.AI.run(
-      "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+      "@cf/qwen/qwen3.8-27b",
       {
         messages: [
           {
