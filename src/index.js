@@ -16,6 +16,12 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
+// Tried in order: the main model twice (transient failures), then the cheaper fallback.
+const PRIMARY_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+const FALLBACK_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast";
+const MODEL_ATTEMPTS = [PRIMARY_MODEL, PRIMARY_MODEL, FALLBACK_MODEL];
+const RETRY_DELAY_MS = 500;
+
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -25,6 +31,8 @@ function json(data, status = 200) {
     },
   });
 }
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function handleApi(request, env, url) {
   const path = url.pathname;
@@ -36,6 +44,7 @@ async function handleApi(request, env, url) {
   // {
   //   "prompt": "..."
   // }
+  // Response: the Workers AI result, plus "_model" (which model answered)
   // ------------------------------------------------------------
 
   if (path === "/api/llm" && method === "POST") {
@@ -51,20 +60,53 @@ async function handleApi(request, env, url) {
       return json({ error: "Missing or invalid 'prompt'" }, 400);
     }
 
-    const result = await env.AI.run(
-      "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
-      {
-        messages: [
-          {
-            role: "user",
-            content: body.prompt,
-          },
-        ],
-        temperature: 0,
-      }
-    );
+    if (!env.AI) {
+      return json({
+        error: "LLM call failed",
+        message: "The AI binding is missing on this deployment",
+        hasAI: false,
+      }, 500);
+    }
 
-    return json(result);
+    let lastError = "";
+
+    for (let i = 0; i < MODEL_ATTEMPTS.length; i++) {
+      const model = MODEL_ATTEMPTS[i];
+
+      try {
+        const result = await env.AI.run(model, {
+          messages: [
+            {
+              role: "user",
+              content: body.prompt,
+            },
+          ],
+          temperature: 0,
+        });
+
+        return json({ ...result, _model: model });
+      } catch (error) {
+        lastError = error instanceof Error ? error.message : String(error);
+        console.error("AI.run failed", model, lastError);
+
+        // Daily allocation used up: retrying or switching models won't help
+        if (/4006|daily free allocation/i.test(lastError)) {
+          return json({
+            error: "LLM call failed",
+            message: lastError,
+            hasAI: true,
+          }, 429);
+        }
+
+        if (i < MODEL_ATTEMPTS.length - 1) await sleep(RETRY_DELAY_MS);
+      }
+    }
+
+    return json({
+      error: "LLM call failed",
+      message: lastError,
+      hasAI: true,
+    }, 503);
   }
 
   // ------------------------------------------------------------
@@ -126,7 +168,16 @@ export default {
     }
 
     if (url.pathname.startsWith("/api/")) {
-      return handleApi(request, env, url);
+      // Safety net: anything uncaught still returns JSON with CORS headers,
+      // so the browser shows the real error instead of a fake CORS failure.
+      try {
+        return await handleApi(request, env, url);   // await is required here
+      } catch (error) {
+        return json({
+          error: "Worker error",
+          message: error instanceof Error ? error.message : String(error),
+        }, 500);
+      }
     }
 
     return new Response(HTML_PAGE, {
