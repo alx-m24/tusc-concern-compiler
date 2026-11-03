@@ -47,67 +47,95 @@ async function handleApi(request, env, url) {
   // Response: the Workers AI result, plus "_model" (which model answered)
   // ------------------------------------------------------------
 
-  if (path === "/api/llm" && method === "POST") {
-    let body;
-
-    try {
-      body = await request.json();
-    } catch {
-      return json({ error: "Invalid JSON" }, 400);
-    }
-
-    if (typeof body.prompt !== "string") {
-      return json({ error: "Missing or invalid 'prompt'" }, 400);
-    }
-
-    if (!env.AI) {
-      return json({
-        error: "LLM call failed",
-        message: "The AI binding is missing on this deployment",
-        hasAI: false,
-      }, 500);
-    }
-
-    let lastError = "";
-
-    for (let i = 0; i < MODEL_ATTEMPTS.length; i++) {
-      const model = MODEL_ATTEMPTS[i];
-
+  
+    if (path === "/api/llm" && method === "POST") {
+      let body;
+    
       try {
-        const result = await env.AI.run(model, {
-          messages: [
-            {
-              role: "user",
-              content: body.prompt,
-            },
-          ],
-          temperature: 0,
+        body = await request.json();
+      } catch {
+        return json({ error: "Invalid JSON" }, 400);
+      }
+    
+      if (typeof body.prompt !== "string" || !body.prompt.trim()) {
+        return json({
+          error: "Missing or invalid 'prompt'"
+        }, 400);
+      }
+    
+      if (!env.GEMINI_API_KEY) {
+        return json({
+          error: "Gemini API key is missing",
+          hasKey: false
+        }, 500);
+      }
+    
+      try {
+        const response = await fetch(GEMINI_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": env.GEMINI_API_KEY
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                role: "user",
+                parts: [
+                  {
+                    text: body.prompt
+                  }
+                ]
+              }
+            ],
+            generationConfig: {
+              temperature: 0,
+              maxOutputTokens: 2048
+            }
+          })
         });
-
-        return json({ ...result, _model: model });
-      } catch (error) {
-        lastError = error instanceof Error ? error.message : String(error);
-        console.error("AI.run failed", model, lastError);
-
-        // Daily allocation used up: retrying or switching models won't help
-        if (/4006|daily free allocation/i.test(lastError)) {
+    
+        const result = await response.json();
+    
+        if (!response.ok) {
+          console.error("Gemini API error:", result);
+    
           return json({
-            error: "LLM call failed",
-            message: lastError,
-            hasAI: true,
-          }, 429);
+            error: "Gemini API call failed",
+            message: result.error?.message || "Unknown Gemini error",
+            status: response.status
+          }, response.status >= 500 ? 503 : response.status);
         }
-
-        if (i < MODEL_ATTEMPTS.length - 1) await sleep(RETRY_DELAY_MS);
+    
+        const generatedText =
+          result.candidates?.[0]?.content?.parts
+            ?.map(part => part.text || "")
+            .join("") || "";
+    
+        if (!generatedText) {
+          return json({
+            error: "Gemini returned an empty response",
+            finishReason: result.candidates?.[0]?.finishReason
+          }, 502);
+        }
+    
+        return json({
+          response: generatedText,
+          _model: GEMINI_MODEL,
+          usage: result.usageMetadata || null
+        });
+    
+      } catch (error) {
+        console.error("Gemini fetch failed:", error);
+    
+        return json({
+          error: "Gemini API connection failed",
+          message: error instanceof Error
+            ? error.message
+            : String(error)
+        }, 503);
       }
     }
-
-    return json({
-      error: "LLM call failed",
-      message: lastError,
-      hasAI: true,
-    }, 503);
-  }
 
   // ------------------------------------------------------------
   // POST /api/d1
