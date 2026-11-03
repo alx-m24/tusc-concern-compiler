@@ -1,5 +1,3 @@
-ok i got a google gemini api key, how to use it now
-how to use it here:
 const HTML_PAGE = `<!doctype html>
 <html lang="en">
 <head>
