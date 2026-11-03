@@ -122,7 +122,11 @@ async function handleApi(request, env, url) {
         return json({
           response: generatedText,
           _model: GEMINI_MODEL,
-          usage: result.usageMetadata || null
+          usage: {
+            inputTokens: result.usageMetadata?.promptTokenCount ?? 0,
+            outputTokens: result.usageMetadata?.candidatesTokenCount ?? 0,
+            totalTokens: result.usageMetadata?.totalTokenCount ?? 0
+          }
         });
     
       } catch (error) {
